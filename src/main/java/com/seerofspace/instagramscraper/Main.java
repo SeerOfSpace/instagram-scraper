@@ -40,7 +40,6 @@ public class Main {
 	private static boolean headless;
 	
 	public static void main(String[] args) {
-		//args = new String[] {"-u", "https://www.instagram.com/p/CaNa1Sbuw1g/"};
 		//args = "-u https://www.instagram.com/p/Ca3Gn7kFr9K/ https://www.instagram.com/p/Ca3G7T0Lo8u/ https://www.instagram.com/p/Ca3HjszgwrK/ https://www.instagram.com/p/Ca6YeSoOykL/".split(" ");
 		
 		Options options = new Options();
@@ -202,11 +201,7 @@ public class Main {
 		String instaURL = "https://www.instagram.com/";
 		driver.get(instaURL);
 		System.out.println("Fetching: " + instaURL);
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e2) {
-			e2.printStackTrace();
-		}
+		waitFor(1000);
 		System.out.println("Waiting for login");
 		while(!driver.findElements(By.xpath("//form[@id='loginForm']")).isEmpty()) {
 			try {
