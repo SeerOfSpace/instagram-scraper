@@ -60,16 +60,16 @@ public class WebDriverSetup {
 	}
 	
 	public static File getExeDir() {
-		File workingDir = null;
+		File exeDir = null;
 		try {
 			File file = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
 			if(file.isFile()) {
-				workingDir = file.getParentFile();
+				exeDir = file.getParentFile();
 			}
 		} catch (URISyntaxException e) {
 			e.printStackTrace();
 		}
-		return workingDir;
+		return exeDir;
 	}
 	
 	public static WebDriver getDriver(DriverType type, boolean headless) {
