@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
@@ -28,16 +27,15 @@ import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
 
-import io.github.bonigarcia.wdm.WebDriverManager;
+import com.seerofspace.instagramscraper.WebDriverSetup.DriverType;
 
 public class Main {
 	
 	private static boolean stopped;
 	private static WebDriver driver;
 	private static boolean headless;
+	private static DriverType type;
 	
 	public static void main(String[] args) {
 		//args = "-u https://www.instagram.com/p/Ca3Gn7kFr9K/ https://www.instagram.com/p/Ca3G7T0Lo8u/ https://www.instagram.com/p/Ca3HjszgwrK/ https://www.instagram.com/p/Ca6YeSoOykL/".split(" ");
@@ -45,24 +43,34 @@ public class Main {
 		Options options = new Options();
 		options.addOption("h", "not-headless", false, "start web driver without headless mode");
 		options.addOption("n", "no-dir", false, "do not create a seperate directory for the downloads");
-		//options.addRequiredOption("u", "url", true, "url to instagram post");
+		options.addOption("w", "web-driver", true, "valid options: chrome (default), firefox");
+		options.addOption("o", "output-dir", true, "output directory");
 		options.addOption(Option.builder("u").longOpt("urls").hasArgs().required().desc("urls to instagram posts").build());
 		CommandLineParser parser = new DefaultParser();
 		CommandLine line;
 		try {
 			line = parser.parse(options, args);
-		} catch (ParseException e2) {
-			e2.printStackTrace();
+		} catch (ParseException e1) {
+			e1.printStackTrace();
 			return;
 		}
 		List<String> urls = Arrays.asList(line.getOptionValues("urls"));
-		//String url = line.getOptionValue('u') + "?__a=1";
 		headless = !line.hasOption("not-headless");
 		boolean createDir = !line.hasOption("no-dir");
+		switch(line.getOptionValue("web-driver", "chrome")) {
+			case "chrome": type = DriverType.CHROME; break;
+			case "firefox": type = DriverType.FIREFOX; break;
+			default: type = DriverType.CHROME; System.out.println("Error: invalid web-driver option"); break;
+		}
+		String outputPath = line.getOptionValue("output-dir", "");
+		File outputDir = null;
+		if(!outputPath.isEmpty()) {
+			outputDir = new File(outputPath);
+		}
 		stopped = false;
 		
-		System.out.println("Starting driver");
-		driver = getChromeDriver(headless);
+		System.out.println("Driver starting");
+		driver = getDriver();
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
 			stop();
 		}));
@@ -113,8 +121,11 @@ public class Main {
 			String code = jsonItems.getString("code");
 			
 			String filename = String.format("%s-%s", username, code);
+			if(outputDir != null) {
+				outputDir.mkdir();
+			}
 			if(createDir && mediaList.size() > 1) {
-				new File(filename).mkdir();
+				new File(outputDir, filename).mkdir();
 				filename = filename + File.separator + filename;
 			}
 			Iterator<MediaElement> mediaIter = mediaList.iterator();
@@ -122,9 +133,9 @@ public class Main {
 				MediaElement me = mediaIter.next();
 				File file;
 				if(me.type == MediaElement.mediaType.VIDEO) {
-					file = new File(filename + i + ".mp4");
+					file = new File(outputDir, filename + i + ".mp4");
 				} else {
-					file = new File(filename + i + ".jpg");
+					file = new File(outputDir, filename + i + ".jpg");
 				}
 				System.out.println("Downloading: " + file.getName());
 				download(me.url, file);
@@ -143,36 +154,21 @@ public class Main {
 		public String url;
 	}
 	
-	public static WebDriver getChromeDriver(boolean headless) {
-		WebDriverManager.getInstance().setup();
-		ChromeOptions ops = new ChromeOptions();
-		ops.addArguments("window-size=1200,800");
-		ops.addArguments("--mute-audio");
-		ops.addArguments("--log-level=3");
-		ops.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36");
-		if(headless) {
-			ops.addArguments("headless");
-		}
-		try {
-			File profile = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-			if(profile.isFile()) {
-				ops.addArguments("--user-data-dir=" + new File(profile.getParentFile(), "profile").getAbsolutePath());
-			} else {
-				ops.addArguments("--user-data-dir=" + new File("profile").getAbsolutePath());
-			}
-		} catch (URISyntaxException e) {
-			e.printStackTrace();
-		}
-		return new ChromeDriver(ops);
-	}
-	
 	public static void stop() {
 		if(!stopped) {
-			driver.close();
+			//driver.close();
 			driver.quit();
 			stopped = true;
 			System.out.println("Driver stopped");
 		}
+	}
+	
+	private static WebDriver getDriver(boolean headless) {
+		return WebDriverSetup.getDriver(type, headless);
+	}
+	
+	private static WebDriver getDriver() {
+		return getDriver(headless);
 	}
 	
 	public static void download(String url, File file) {
@@ -194,9 +190,10 @@ public class Main {
 		if(headless) {
 			System.out.println("Restarting web driver without headless mode");
 			stop();
-			driver = getChromeDriver(false);
+			driver = getDriver(false);
 			stopped = false;
 			headless = false;
+			System.out.println("Driver starting");
 		}
 		String instaURL = "https://www.instagram.com/";
 		driver.get(instaURL);
